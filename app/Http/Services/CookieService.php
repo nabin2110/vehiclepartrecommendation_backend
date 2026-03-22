@@ -7,23 +7,20 @@ use Symfony\Component\HttpFoundation\Cookie;
 
 class CookieService
 {
+    public const ACCESS_COOKIE  = '__access_token';
+    public const REFRESH_COOKIE = '__refresh_token';
+    public const DEVICE_COOKIE  = '__device_id';
+    public const CSRF_COOKIE    = 'XSRF-TOKEN';
 
-    public const ACCESS_COOKIE   = '__access_token';
-    public const REFRESH_COOKIE  = '__refresh_token';
-    public const DEVICE_COOKIE   = '__device_id';
-    public const CSRF_COOKIE     = 'XSRF-TOKEN';
-
-    private const ACCESS_TTL_MIN  = 15;       // 15 minutes
-
-    private const REFRESH_TTL_MIN = 10080;    // 7 days
-    private const REMEMBER_TTL_MIN = 43200;   // 30 days
+    private const ACCESS_TTL_MIN  = 15;
+    private const REFRESH_TTL_MIN = 10080;
     private const CSRF_TTL_MIN    = 10080;
 
-    public function attachAuthCookies(JsonResponse $response, array $tokenData)
+    public function attachAuthCookies(JsonResponse $response, array $tokenData): JsonResponse
     {
-        $secure      = $this->isSecure();
-        $refreshTtl  = self::REFRESH_TTL_MIN;
-        $csrfToken   = getCsrfToken();
+        $secure     = $this->isSecure();
+        $refreshTtl = self::REFRESH_TTL_MIN;
+        $csrfToken  = getCsrfToken();
 
         $response->withCookie($this->makeCookie(
             name: self::ACCESS_COOKIE,
@@ -38,7 +35,7 @@ class CookieService
             name: self::REFRESH_COOKIE,
             value: $tokenData['refresh_token'],
             minutes: $refreshTtl,
-            path: '/api',
+            path: '/',
             httpOnly: true,
             secure: $secure,
         ));
@@ -47,7 +44,7 @@ class CookieService
             name: self::DEVICE_COOKIE,
             value: $tokenData['device_id'] ?? '',
             minutes: $refreshTtl,
-            path: '/api',
+            path: '/',
             httpOnly: true,
             secure: $secure,
         ));
@@ -55,19 +52,45 @@ class CookieService
         $response->withCookie($this->makeCookie(
             name: self::CSRF_COOKIE,
             value: $csrfToken,
-            minutes: $refreshTtl,
+            minutes: self::CSRF_TTL_MIN,
             path: '/',
             httpOnly: false,
             secure: $secure,
         ));
 
-        $data = $response->getData(true);
+        $data               = $response->getData(true);
         $data['csrf_token'] = $csrfToken;
         $response->setData($data);
 
         return $response;
     }
 
+    public function clearAuthCookies(JsonResponse $response): JsonResponse
+    {
+        $secure = $this->isSecure();
+
+        $cookies = [
+            ['name' => self::ACCESS_COOKIE,  'httpOnly' => true,  'path' => '/'],
+            ['name' => self::REFRESH_COOKIE, 'httpOnly' => true,  'path' => '/'],
+            ['name' => self::DEVICE_COOKIE,  'httpOnly' => true,  'path' => '/'],
+            ['name' => self::CSRF_COOKIE,    'httpOnly' => false, 'path' => '/'],
+        ];
+
+        foreach ($cookies as $cookie) {
+            $response->withCookie(
+                $this->makeCookie(
+                    name: $cookie['name'],
+                    value: '',
+                    minutes: -1,
+                    path: $cookie['path'],
+                    httpOnly: $cookie['httpOnly'],
+                    secure: $secure,
+                )
+            );
+        }
+
+        return $response;
+    }
 
     private function makeCookie(
         string $name,
@@ -76,7 +99,7 @@ class CookieService
         string $path,
         bool   $httpOnly,
         bool   $secure,
-    ) {
+    ): Cookie {
         return new Cookie(
             name: $name,
             value: $value,
@@ -86,30 +109,14 @@ class CookieService
             secure: $secure,
             httpOnly: $httpOnly,
             raw: false,
-            sameSite: Cookie::SAMESITE_STRICT,
+            sameSite: $secure
+                ? Cookie::SAMESITE_NONE
+                : Cookie::SAMESITE_LAX,
         );
     }
 
     private function isSecure(): bool
     {
         return config('app.env') !== 'local';
-    }
-
-    public function clearAuthCookies(JsonResponse $response): JsonResponse
-    {
-        $cookies = [
-            CookieService::ACCESS_COOKIE,
-            CookieService::REFRESH_COOKIE,
-            CookieService::DEVICE_COOKIE,
-            CookieService::CSRF_COOKIE,
-        ];
-
-        foreach ($cookies as $name) {
-            $response->withCookie(
-                cookie($name, '', -1)
-            );
-        }
-
-        return $response;
     }
 }
