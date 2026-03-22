@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-abstract class BaseController
+abstract class ResponseController
 {
     public function success(array|object $data = [],?string $message = '',int $statusCode = 200){
         return response()->json([

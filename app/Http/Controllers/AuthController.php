@@ -7,7 +7,7 @@ use App\Http\Requests\Auth\InitiateLoginRequest;
 use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Http\Request;
 
-class AuthController extends BaseController
+class AuthController extends ResponseController
 {
     public function __construct(protected AuthRepository $authRepository)
     {
