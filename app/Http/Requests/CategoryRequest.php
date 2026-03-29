@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Constant\TableConstant;
 use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -35,5 +36,10 @@ class CategoryRequest extends FormRequest
             'image_file' => 'nullable|image|max:2048|mimes:png,jpeg,svg,jpg',
             'name' => ['required','string',Rule::unique(TableConstant::CATEGORY,'name')->ignore($this->categoryId)]
         ];
+    }
+
+    public function failedValidation(Validator $validator)
+    {
+        return parent::failedValidation($validator);
     }
 }
